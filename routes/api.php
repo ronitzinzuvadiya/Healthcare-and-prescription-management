@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,6 +15,11 @@ use App\Http\Controllers\Api\AuthController;
 |
 */
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::group(['middleware' => 'api'], function ($routes) {
+    Route::post('/register', [UserController::class, 'register']);
+    Route::post('/login', [UserController::class, 'login']);
+    Route::post('/profile', [UserController::class, 'profile']);
+    Route::post('/logout', [UserController::class, 'logout']);
+    Route::post('/reset-password', [UserController::class, 'resetPassword']);
+});
 
