@@ -41,6 +41,7 @@ class User extends Authenticatable implements JWTSubject
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
     public function getJWTIdentifier()
@@ -51,5 +52,15 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [];
+    }
+
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
+    }
+
+    public function doctor()
+    {
+        return $this->hasOne(Doctor::class);
     }
 }

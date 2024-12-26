@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Models\Patient;
+use App\Models\Doctor;
 use Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -29,9 +31,11 @@ class UserController extends Controller
             if ($user) {
                 return response()->json(
                     [
-                        'status' => 0, 
+                        'status' => 0,
                         'message' => 'Email already exists.'
-                    ], 400);
+                    ],
+                    400
+                );
             }
 
             # Validate the form data
@@ -71,9 +75,11 @@ class UserController extends Controller
             if ($validator->fails()) {
                 return response()->json(
                     [
-                        'status' => 0, 
+                        'status' => 0,
                         'message' => $validator->errors()->first()
-                    ], 400);
+                    ],
+                    400
+                );
             }
 
             $user = User::create([
@@ -91,18 +97,22 @@ class UserController extends Controller
                     'status' => 1,
                     'message' => 'User registered successfully',
                     'data' => $responseData,
-                ], 201);
+                ],
+                201
+            );
         } catch (\Exception $e) {
             return response()->json(
                 [
                     'status' => 0,
                     'message' => 'An error occurred during registration.',
                     'error' => $e->getMessage(),
-                ], 500);
+                ],
+                500
+            );
         }
     }
 
-    // Login user
+    # Login user
     public function login(Request $request)
     {
         $formData = [
@@ -110,11 +120,12 @@ class UserController extends Controller
             'password' => $request->input('password')
         ];
 
-        // Validate the form data
+        $user = User::where('email', $request->email)->first();
+        # Validate the form data
         $validator = Validator::make(
             $formData,
             [
-                'email' =>'required|string|email|exists:users',
+                'email' => 'required|string|email|exists:users',
                 'password' => 'required|string',
             ],
             [
@@ -130,7 +141,7 @@ class UserController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => 0, 
+                'status' => 0,
                 'message' => $validator->errors()->first()
             ], 400);
         }
@@ -142,22 +153,25 @@ class UserController extends Controller
             ], 401);
         }
 
-        return $this->responseWithToken($token);
+        return $this->responseWithToken($token, $user);
     }
 
-    // Refresh a token
-    protected function responseWithToken($token){
+    # Refresh a token
+    protected function responseWithToken($token, $user)
+    {
         return response()->json([
             'status' => 1,
             'message' => 'Login successful',
+            'user_data' => $user,
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth()->factory()->getTTL()*60,
+            'expires_in' => auth()->factory()->getTTL() * 60,
         ], 200);
     }
 
-    // Logout user
-    public function logout(){
+    # Logout user
+    public function logout()
+    {
         auth()->logout();
         return response()->json([
             'status' => 1,
@@ -165,14 +179,15 @@ class UserController extends Controller
         ], 200);
     }
 
-    // Reset password
-    public function resetPassword(Request $request){
+    # Reset password
+    public function resetPassword(Request $request)
+    {
         $user = Auth::user();
 
-        if(!$user){
+        if (!$user) {
             return response()->json([
-               'status' => 0,
-               'message' => 'First you need to login to reset your password.'
+                'status' => 0,
+                'message' => 'First you need to login to reset your password.'
             ], 404);
         }
 
@@ -208,11 +223,12 @@ class UserController extends Controller
                 'password_confirmation.required' => 'Confirm new password is required.',
                 'password_confirmation.string' => 'Confirm new password must be a string.',
                 'password_confirmation.same' => 'Confirm new password must match with new password.',
-            ]);
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => 0, 
+                'status' => 0,
                 'message' => $validator->errors()->first()
             ], 400);
         }
@@ -223,20 +239,196 @@ class UserController extends Controller
         return response()->json(['status' => 1, 'message' => 'Password reset successfully'], 200);
     }
 
-
-    public function profile(){
+    # Get Profile information
+    public function profile()
+    {
         $user = Auth::user();
 
-        if($user){
-            return response()->json([
-                'status' => 1,
-                'user_data' => $user
-            ], 200);
-        } else {
+        if (!$user) {
             return response()->json([
                 'status' => 0,
                 'message' => 'User not found.'
             ], 404);
+        }
+
+        if ($user->role == "Patient") {
+            # Retrieve the patient's record associated with the user
+            $patient_about = Patient::select('contact_details', 'medical_history')->where('patient_id', $user->id)->first();
+
+            if ($patient_about) {
+                # Return the patient's data
+                return response()->json([
+                    'status' => 1,
+                    'user_data' => $user,
+                    'patient_about' => $patient_about,
+                ], 200);
+            } else {
+                return response()->json([
+                    'status' => 1,
+                    'user_data' => $user,
+                    'patient_about' => "No About Available",
+                ], 200);
+            }
+        } else if ($user->role == "Doctor") {
+            # Retrieve the doctor's record associated with the user
+            $doctor_about = Doctor::select('contact_details', 'specialities', 'availability')->where('doctor_id', $user->id)->first();
+
+            if ($doctor_about) {
+                # Return the doctor's data
+                return response()->json([
+                    'status' => 1,
+                    'user_data' => $user,
+                    'doctor_about' => $doctor_about,
+                ], 200);
+            } else {
+                return response()->json([
+                    'status' => 1,
+                    'user_data' => $user,
+                    'doctor_about' => "No About Available",
+                ], 200);
+            }
+        } else {
+            return response()->json([
+                'status' => 0,
+                'message' => "No data found",
+            ], 404);
+        }
+    }
+
+    # Update profile
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::user();
+
+        # Check if the user is a Patient
+        if ($user->role == 'Patient') {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'age' => 'required|integer|min:1',
+                'patient_contact_details' => 'nullable|string',
+                'patient_medical_history' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => $validator->errors()->first(),
+                ], 400);
+            }
+
+            # Update the patient's basic profile in users table
+            $user->name = $request->input('name');
+            $user->age = $request->input('age');
+            $user->save();
+
+            # Retrieve the patient's record associated with the user
+            $patient = Patient::where('patient_id', $user->id)->first();
+
+            # If patient details alreay exists, update the fields, otherwise create a new patient details
+            if ($patient) {
+                if ($request->input('patient_contact_details') != '') {
+                    $patient->contact_details = $request->input('patient_contact_details');
+                }
+
+                if ($request->input('patient_medical_history') != '') {
+                    $patient->medical_history = $request->input('patient_medical_history');
+                }
+
+                $patient->save();
+            } else {
+                # If no patient exists, create a new one
+                $patient = new Patient();
+                $patient->patient_id = $user->id;
+
+                # Assign values only if they're provided
+                if ($request->input('patient_contact_details') != '') {
+                    $patient->contact_details = $request->input('patient_contact_details');
+                }
+
+                if ($request->input('patient_medical_history') != '') {
+                    $patient->medical_history = $request->input('patient_medical_history');
+                }
+
+                # Save the new patient record
+                $patient->save();
+            }
+            # Return a response indicating the success
+            return response()->json([
+                'status' => 1,
+                'message' => 'Patient profile updated successfully.',
+                'user_data' => User::select('id', 'age', 'name', 'email', 'role')->where('id', $user->id)->first(),
+                'patient_about' => Patient::select('contact_details', 'medical_history')->where('patient_id', $user->id)->first(),
+            ], 200);
+        }
+
+        # Check if the user is a Doctor
+        if ($user->role == 'Doctor') {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'age' => 'required|integer|min:1',
+                'doctor_contact_details' => 'nullable|string',
+                'doctor_specialities' => 'nullable|string',
+                'doctor_availability' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => $validator->errors()->first(),
+                ], 400);
+            }
+
+            # Update the doctor's basic profile in users table
+            $user->name = $request->input('name');
+            $user->age = $request->input('age');
+            $user->save();
+
+            # Retrieve the doctor's record associated with the user
+            $doctor = Doctor::where('doctor_id', $user->id)->first();
+
+            # If doctor details alreay exists, update the fields, otherwise create a new doctor details
+            if ($doctor) {
+                if ($request->input('doctor_contact_details') != '') {
+                    $doctor->contact_details = $request->input('doctor_contact_details');
+                }
+
+                if ($request->input('doctor_specialities') != '') {
+                    $doctor->specialities = $request->input('doctor_specialities');
+                }
+
+                if ($request->input('doctor_availability') != '') {
+                    $doctor->availability = $request->input('doctor_availability');
+                }
+
+                $doctor->save();
+            } else {
+                # If no doctor exists, create a new one
+                $doctor = new Doctor();
+                $doctor->doctor_id = $user->id;
+
+                # Assign values only if they're provided
+                if ($request->input('doctor_contact_details') != '') {
+                    $doctor->contact_details = $request->input('doctor_contact_details');
+                }
+
+                if ($request->input('doctor_specialities') != '') {
+                    $doctor->specialities = $request->input('doctor_specialities');
+                }
+
+                if ($request->input('doctor_availability') != '') {
+                    $doctor->availability = $request->input('doctor_availability');
+                }
+
+                # Save the new doctor record
+                $doctor->save();
+            }
+            # Return a response indicating the success
+            return response()->json([
+                'status' => 1,
+                'message' => 'Doctor profile updated successfully.',
+                'user_data' => User::select('id', 'age', 'name', 'email', 'role')->where('id', $user->id)->first(),
+                'doctor_about' => Doctor::select('contact_details', 'specialities', 'availability')->where('doctor_id', $user->id)->first(),
+            ], 200);
         }
     }
 }
