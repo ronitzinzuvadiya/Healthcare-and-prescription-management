@@ -367,7 +367,7 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'age' => 'required|integer|min:1',
                 'doctor_contact_details' => 'nullable|string',
-                'doctor_specialities' => 'nullable|string',
+                'doctor_specialities' => 'nullable|array',
                 'doctor_availability' => 'nullable|string',
             ]);
 
@@ -388,12 +388,14 @@ class UserController extends Controller
 
             # If doctor details alreay exists, update the fields, otherwise create a new doctor details
             if ($doctor) {
-                if ($request->input('doctor_contact_details') != '') {
+                // dd(explode(",", preg_replace('/\s+/', '', $request->input('doctor_specialities'))));
+                if ($request->has('doctor_contact_details')) {
                     $doctor->contact_details = $request->input('doctor_contact_details');
                 }
 
-                if ($request->input('doctor_specialities') != '') {
-                    $doctor->specialities = $request->input('doctor_specialities');
+                if ($request->has('doctor_specialities')) {
+                    $doctor->specialities = json_encode($request->input('doctor_specialities'));
+                    // $doctor->specialities = $request->input('doctor_specialities');
                 }
 
                 if ($request->input('doctor_availability') != '') {

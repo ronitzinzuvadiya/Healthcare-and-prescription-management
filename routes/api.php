@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PatientController;
+use App\Http\Controllers\Api\DoctorController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,5 +36,8 @@ Route::group(['middleware' => 'api'], function ($routes) {
 
     # Profile Update API for both patient and doctor role (different field value need to submit based on role)
     Route::post('profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
+
+    # Patient can Filter Doctor based on their speciality and availability
+    Route::post('filter/doctors', [PatientController::class, 'filterDoctors'])->name('filter.doctors');
 });
 

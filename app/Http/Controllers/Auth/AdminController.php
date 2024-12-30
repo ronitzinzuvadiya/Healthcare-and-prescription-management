@@ -8,11 +8,13 @@ use App\Http\Requests\DoctorRegisterRequest;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Models\Doctor;
 use Auth;
 use Illuminate\Contracts\Session\Session as SessionSession;
 use Session;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\RedirectResponse;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AdminController extends Controller
 {
@@ -28,28 +30,28 @@ class AdminController extends Controller
         return redirect()->intended('/admin/login');
     }
     
-    public function checkLogin(LoginRequest $request): RedirectResponse
+    public function checkLogin(LoginRequest $request)
     {
 
         // dd($request);
         
-        // $credentials = $request->only('email', 'password');
+        $credentials = $request->only('email', 'password');
 
-        // $user = User::where('email', $request->email)->first();
-        // if (empty($user)) {
+        $user = User::where('email', $request->email)->first();
+        if (empty($user)) {
 
-        //     $flashArr = array(
-        //         'msg' => 'User not found!',
-        //     );
+            $flashArr = array(
+                'msg' => 'User not found!',
+            );
 
-        //     return redirect()->route('admin.login')->with('err_message', $flashArr);
-        // }
+            return redirect()->route('admin.login')->with('err_message', $flashArr);
+        }
 
-        // Auth::login($user);
+        Auth::login($user);
 
-        // if (!empty(Auth::check()) && Auth::user()->role == 'Admin') {
-        //     return redirect()->route('admin.dashboard');
-        // }
+        if (!empty(Auth::check()) && Auth::user()->role == 'Admin') {
+            return redirect()->route('admin.dashboard');
+        }
 
         // if (Auth::attempt($credentials)) {
         //     $request->session()->regenerate();
@@ -63,21 +65,40 @@ class AdminController extends Controller
         //     return redirect()->route('/admin/login')->with('err_message', $flashArr);
         // }
 
-        
-        if(auth()->guard('admin')->attempt(['email' => $request->input('email'),  'password' => $request->input('password')])){
-            $user = auth()->guard('admin')->user();
-            if($user->role == "Admin"){
-                return redirect()->route('admin.dashboard')->with('success','You are Logged in sucessfully.');
-            }
-        }else {
-            return back()->with('error','Whoops! invalid email and password.');
-        }
 
-        return back()
-            ->withInput($request->only('email'))
-            ->withErrors([
-                'email' => 'You dont have permission to login here.',
-            ]);
+        // if(auth()->guard('web')->attempt(['email' => $request->input('email'),  'password' => $request->input('password')])){
+        //     $user = auth()->guard('web')->user();
+        //     if($user->role == "Admin"){
+        //         $token = JWTAuth::fromUser($user);
+        //         return redirect()->route('admin.dashboard')->with($token);
+        //     }
+        // }else {
+        //     return back()->with('error','Whoops! invalid email and password.');
+        // }
+
+        // return back()
+        //     ->withInput($request->only('email'))
+        //     ->withErrors([
+        //         'email' => 'You dont have permission to login here.',
+        //     ]);
+
+
+        {
+            // Validate the request
+            $credentials = $request->only('email', 'password');
+
+            try {
+                // Attempt to verify the credentials and create a token
+                if (!$token = JWTAuth::attempt($credentials)) {
+                    return response()->json(['error' => 'invalid_credentials'], 401);
+                }
+            } catch (JWTException $e) {
+                return response()->json(['error' => 'could_not_create_token'], 500);
+            }
+
+            // Return the token to the client
+            return response()->json(compact('token'));
+        }
     }
 
     public function doctorRegister(){
@@ -104,11 +125,8 @@ class AdminController extends Controller
             ]);
 
             return redirect()->route('admin.dashboard')->with('success', 'Doctor registered successfully.');
-
         } catch (\Exception $e) {
             return back()->with('error', 'An error occurred during registration.')->withInput();
         }
-
     }
-        // Login User
 }
