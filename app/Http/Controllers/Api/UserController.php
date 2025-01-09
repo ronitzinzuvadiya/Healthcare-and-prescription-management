@@ -187,8 +187,8 @@ class UserController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => 0,
-                'message' => 'First you need to login to reset your password.'
-            ], 404);
+                'message' => 'Session ended, Please login again.',
+            ], 401);
         }
 
         if (!Hash::check($request->input('old_password'), $user->password)) {
@@ -247,8 +247,8 @@ class UserController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => 0,
-                'message' => 'User not found.'
-            ], 404);
+                'message' => 'Session ended, Please login again.',
+            ], 401);
         }
 
         if ($user->role == "Patient") {
@@ -300,11 +300,18 @@ class UserController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Session ended, Please login again.',
+            ], 401);
+        }
+
         # Check if the user is a Patient
         if ($user->role == 'Patient') {
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'age' => 'required|integer|min:1',
+                'name' => 'string|max:255',
+                # 'age' => 'integer|min:1',
                 'patient_contact_details' => 'nullable|string',
                 'patient_medical_history' => 'nullable|string',
             ]);
@@ -368,7 +375,7 @@ class UserController extends Controller
                 'age' => 'required|integer|min:1',
                 'doctor_contact_details' => 'nullable|string',
                 'doctor_specialities' => 'nullable|array',
-                'doctor_availability' => 'nullable|string',
+                'doctor_availability' => 'nullable|array',
             ]);
 
             if ($validator->fails()) {
@@ -388,18 +395,14 @@ class UserController extends Controller
 
             # If doctor details alreay exists, update the fields, otherwise create a new doctor details
             if ($doctor) {
-                // dd(explode(",", preg_replace('/\s+/', '', $request->input('doctor_specialities'))));
+                # dd(explode(",", preg_replace('/\s+/', '', $request->input('doctor_specialities'))));
                 if ($request->has('doctor_contact_details')) {
                     $doctor->contact_details = $request->input('doctor_contact_details');
                 }
 
                 if ($request->has('doctor_specialities')) {
                     $doctor->specialities = json_encode($request->input('doctor_specialities'));
-                    // $doctor->specialities = $request->input('doctor_specialities');
-                }
-
-                if ($request->input('doctor_availability') != '') {
-                    $doctor->availability = $request->input('doctor_availability');
+                    # $doctor->specialities = $request->input('doctor_specialities');
                 }
 
                 $doctor->save();
@@ -415,10 +418,6 @@ class UserController extends Controller
 
                 if ($request->input('doctor_specialities') != '') {
                     $doctor->specialities = $request->input('doctor_specialities');
-                }
-
-                if ($request->input('doctor_availability') != '') {
-                    $doctor->availability = $request->input('doctor_availability');
                 }
 
                 # Save the new doctor record
