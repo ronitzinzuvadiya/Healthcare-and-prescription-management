@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class DoctorRegisterRequest extends FormRequest
+class PatientRegisterRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -26,12 +26,11 @@ class DoctorRegisterRequest extends FormRequest
             'age' => ['required', 'integer', 'min:1'],
             'email' => ['required', 'string', 'email', 'unique:users'],
             'password' => ['required', 'string', 'min:8'],
-            'password_confirmation' => ['required', 'string', 'same:password']
+            'password_confirmation' => ['required', 'string', 'same:password'],
         ];
     }
 
-    public function messages()
-    {
+    public function messages(){
         return [
             'name.required' => 'Name is required.',
             'name.regex' => 'Name must only contain alphabetical characters.',
